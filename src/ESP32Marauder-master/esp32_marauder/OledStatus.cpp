@@ -8,6 +8,11 @@
 // Global owned by the sketch; we only read it.
 extern WiFiScan wifi_scan_obj;
 
+// Owned by this module: incremented once per captured frame from
+// Buffer::append() (the universal capture chokepoint), so Pkts moves in every
+// scan/sniff mode. Reset at each scan start (see update()).
+volatile uint32_t oled_frame_count = 0;
+
 static const uint32_t OLED_REFRESH_MS = 250;   // ~4 Hz
 static const char HEARTBEAT[4] = {'|', '/', '-', '\\'};
 
@@ -105,11 +110,7 @@ void OledStatus::draw() {
   bool     running = wifi_scan_obj.scanning();
   uint8_t  ch      = wifi_scan_obj.set_channel;
   uint32_t secs    = millis() / 1000;
-  // Firmware's existing per-frame tally (no parallel counting). Marauder only
-  // increments these in sniffraw (WIFI_SCAN_RAW_CAPTURE); sniffbeacon/probe/
-  // scanall paths keep no counter, so Pkts stays 0 there (the heartbeat is the
-  // liveness cue in those modes). Counters reset at each scan start.
-  uint32_t pkts    = wifi_scan_obj.mgmt_frames + wifi_scan_obj.data_frames;
+  uint32_t pkts    = oled_frame_count;   // frames captured this scan (all modes)
 
   char l1[24], l4[24], l5[24];
   snprintf(l1, sizeof(l1), "ESP32 Marauder %c", HEARTBEAT[this->beat & 3]);
@@ -132,6 +133,12 @@ void OledStatus::update(uint32_t now) {
   if ((now - this->last_draw) < OLED_REFRESH_MS) return;
   this->last_draw = now;
   this->beat++;
+  // Reset the frame counter at each scan start (STOPPED -> RUNNING edge), so
+  // Pkts reflects the current scan, matching how the firmware zeroes its own
+  // per-scan counters.
+  bool running = wifi_scan_obj.scanning();
+  if (running && !this->prev_running) oled_frame_count = 0;
+  this->prev_running = running;
   this->draw();
 }
 

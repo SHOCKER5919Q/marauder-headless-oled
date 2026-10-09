@@ -26,6 +26,7 @@ class OledStatus {
     uint8_t  addr = OLED_ADDR;    // confirmed at begin()
     uint32_t last_draw = 0;
     uint8_t  beat = 0;            // heartbeat frame
+    bool     prev_running = false; // for the scan-start reset edge
 
     const char* modeLabel(uint8_t mode);
     void draw();
