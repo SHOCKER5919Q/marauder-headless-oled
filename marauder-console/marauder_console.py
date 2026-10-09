@@ -185,13 +185,23 @@ def run_selftest(sess, seconds):
 
 # ---- interactive REPL -------------------------------------------------------
 def run_repl(sess):
-    from prompt_toolkit import PromptSession
+    from prompt_toolkit import PromptSession, print_formatted_text
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.completion import NestedCompleter, WordCompleter
     from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.formatted_text import ANSI
 
     c = sess.color
+
+    # Route ALL styled output through prompt_toolkit's renderer (same path the
+    # table uses). Our C class emits standard SGR codes; ANSI() parses them so
+    # patch_stdout renders real colors instead of leaking literal escape bytes
+    # ("?[2m"). With color off (non-TTY), the strings carry no codes, so this is
+    # clean plain text too.
+    def emit(s=""):
+        print_formatted_text(ANSI(s))
+
     cmds = all_commands()
 
     # command -> flag completer; meta commands too.
@@ -212,7 +222,7 @@ def run_repl(sess):
         sess.send("stopscan")
         sess.agg.clear()
         event.app.current_buffer.reset()
-        print(c.yellow("^C -> stopscan (table cleared)"))
+        emit(c.yellow("^C -> stopscan (table cleared)"))
 
     def bottom_toolbar():
         # Live, in-place aggregated table (refreshes via refresh_interval).
@@ -227,15 +237,15 @@ def run_repl(sess):
                              refresh_interval=0.4)
 
     def show_help():
-        print(render_palette(c))
+        emit(render_palette(c))
 
     with patch_stdout():
-        sess.printer = print  # patch_stdout makes threaded print() land above prompt
+        sess.printer = emit   # all async/board output goes through pt renderer
         sess.open()
-        print(c.green(f"connected to {sess.port} @ {sess.baud}"))
+        emit(c.green(f"connected to {sess.port} @ {sess.baud}"))
         if sess.logpath:
-            print(c.dim(f"logging to {sess.logpath}"))
-        print(c.dim("type `/` or `/help` for the command palette, /quit to exit"))
+            emit(c.dim(f"logging to {sess.logpath}"))
+        emit(c.dim("type `/` or `/help` for the command palette, /quit to exit"))
         while True:
             try:
                 line = psession.prompt("marauder> ")
@@ -253,29 +263,29 @@ def run_repl(sess):
                 break
             if low == "/stop":
                 sess.send("stopscan"); sess.agg.clear()
-                print(c.yellow("stopscan sent (table cleared)")); continue
+                emit(c.yellow("stopscan sent (table cleared)")); continue
             if low == "/log":
-                print(c.dim(sess.logpath or "logging disabled")); continue
+                emit(c.dim(sess.logpath or "logging disabled")); continue
             if low == "/raw":
                 sess.table_mode = False
-                print(c.dim("raw stream mode - frames scroll above; /table to aggregate")); continue
+                emit(c.dim("raw stream mode - frames scroll above; /table to aggregate")); continue
             if low == "/table":
                 sess.table_mode = True
-                print(c.dim("table mode - frames aggregate below; /raw for the stream")); continue
+                emit(c.dim("table mode - frames aggregate below; /raw for the stream")); continue
             if low.startswith("/sort"):
                 parts = low.split()
                 sess.sort = "last" if (len(parts) > 1 and parts[1].startswith("last")) else "rssi"
-                print(c.dim(f"table sort = {sess.sort}")); continue
+                emit(c.dim(f"table sort = {sess.sort}")); continue
             if line.startswith("/"):
-                print(c.red(f"unknown meta-command {line!r} (try /help)")); continue
+                emit(c.red(f"unknown meta-command {line!r} (try /help)")); continue
             # warn (don't block) on a command we know is a no-op in this build
             head = line.split()[0]
             if head in DEAD:
-                print(c.yellow(f"note: `{head}` is a no-op in this headless build "
+                emit(c.yellow(f"note: `{head}` is a no-op in this headless build "
                                f"({DEAD[head]}); sending anyway"))
             sess.send(line)
     sess.close()
-    print("bye")
+    emit("bye")
 
 
 def main():
