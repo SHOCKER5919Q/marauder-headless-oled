@@ -1,0 +1,35 @@
+> -32 Ch: 2 2a:ef:99:b8:32:47 ESSID: Phone_1_1004 21 14 
+-74 Ch: 2 02:31:92:a1:d1:22 ESSID:  02:31:92:a1:d1:22 11 0C 
+-88 Ch: 2 f0:5c:19:63:67:80 ESSID: ceo 31 04 
+-87 Ch: 2 f0:5c:19:63:67:81 ESSID: SECRETARY 31 04 
+1: sta: d4:f3:2d:1f:b3:82 -> ap: 2a:ef:99:b8:32:47
+-88 Ch: 2 f0:5c:19:63:67:83 ESSID: LIBRARY 31 04 
+-75 Ch: 2 00:31:92:81:d1:22 ESSID: TPlink63 11 1C 
+2: sta: e6:cf:40:78:91:e8 -> ap: 00:31:92:81:d1:22
+3: sta: de:14:01:a2:66:62 -> ap: 00:31:92:81:d1:22
+-89 Ch: 2 5a:a0:fa:0b:8e:34 ESSID: Manu 31 14 
+-88 Ch: 2 f0:5c:19:63:67:82 ESSID: HRD 31 14 
+-86 Ch: 2 f2:57:c3:ef:a5:96 ESSID: sudhindra 31 14 
+4: sta: ea:a4:a1:11:5b:38 -> ap: 00:31:92:81:d1:22
+5: sta: 62:a0:0f:6b:55:f7 -> ap: 00:31:92:81:d1:22
+6: ap: 00:31:92:81:d1:22 -> sta: 36:1a:e2:78:2d:b1
+7: ap: 00:31:92:81:d1:22 -> sta: 92:16:b4:a0:69:1a
+-84 Ch: 4 f0:b4:d2:5e:da:eb ESSID: DIR-615-DAEA 11 04 
+-87 Ch: 5 60:c5:a8:71:6b:a8 ESSID: SG-A18****6307 31 00 
+-90 Ch: 5 8e:5b:b6:62:85:ba ESSID: Mydu11 11 04 
+-88 Ch: 6 7e:f1:7e:2b:44:0f ESSID:  7e:f1:7e:2b:44:0f 11 0C 
+8: sta: 8e:76:ed:40:2b:a0 -> ap: 8e:5b:b6:62:85:ba
+9: ap: 2a:ef:99:b8:32:47 -> sta: 01:00:5e:7f:ff:fa
+-90 Ch: 10 72:0f:37:c1:fd:55 ESSID: OnePlus 11 5G 31 00 
+-92 Ch: 11 ce:1d:d2:e6:a6:bb ESSID: Shiva 31 14 
+-87 Ch: 12 f0:b4:d2:61:b7:d5 ESSID: D-LINK_Guest 11 04 
+-81 Ch: 12 f0:b4:d2:61:b7:d3 ESSID: D-LINK 11 04 
+10: ap: f0:b4:d2:61:b7:d3 -> sta: ba:9a:9c:5f:0b:7e
+11: ap: f0:b4:d2:61:b7:d3 -> sta: 62:8a:65:de:d1:b6
+-92 Ch: 1 f6:02:fe:eb:04:f6 ESSID: Shanmith's M36 11 04 
+-87 Ch: 1 f0:5c:19:63:67:84 ESSID: cc 31 14 
+-77 Ch: 1 42:0b:5a:7d:e0:31 ESSID: Network Error!! 31 14 
+12: sta: 56:bf:92:6f:2d:a4 -> ap: f0:5c:19:63:67:84
+13: ap: 00:31:92:81:d1:22 -> sta: fe:ef:9a:f4:96:68
+14: ap: 00:31:92:81:d1:22 -> sta: f6:1c:f7:60:e6:f1
+15: ap: 2a:ef:99:b8:32:47 -> sta: 7a:a4:6f:01:f4:d2

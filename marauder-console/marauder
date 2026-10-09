@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Launch the Marauder serial console. Usage: ./marauder [-p /dev/ttyUSBx] [args]
+cd "$(dirname "$(readlink -f "$0")")"
+exec ./.venv/bin/python marauder_console.py "$@"
