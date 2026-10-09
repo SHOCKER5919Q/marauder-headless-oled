@@ -1,0 +1,9 @@
+# the big upstream archive and firmware binaries/media (kept out of VCS)
+*.zip
+*.bin
+# python wrapper runtime artifacts
+marauder-console/.venv/
+marauder-console/logs/
+marauder-console/.mc_history
+**/__pycache__/
+*.pyc
