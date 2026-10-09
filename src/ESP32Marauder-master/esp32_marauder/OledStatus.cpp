@@ -81,6 +81,7 @@ const char* OledStatus::modeLabel(uint8_t mode) {
     case WIFI_SCAN_SIG_STREN:      return "Foxhunt";
     case WIFI_SCAN_EVIL_PORTAL:    return "Evil Portal";
     case WIFI_SCAN_PINESCAN:       return "Pineapple Det";
+    case WIFI_SCAN_MULTISSID:      return "MultiSSID Det";
     case WIFI_PACKET_MONITOR:      return "Pkt Monitor";
     case WIFI_ATTACK_BEACON_SPAM:  return "Beacon Spam";
     case WIFI_ATTACK_BEACON_LIST:  return "Beacon Spam";

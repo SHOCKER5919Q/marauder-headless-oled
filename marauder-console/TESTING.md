@@ -179,8 +179,7 @@ so watch the scrollback.
 - **Safe?** Listening is passive. The trigger **transmits** — your own AP only.
 
 ### 4.2 `sniffmultissid` — detect karma / multi-SSID (evil-twin) APs  ✅ self-testable
-- **Listen (safe):** `sniffmultissid` → OLED shows **`Active`** (this mode isn't in
-  the OLED label map — honest note; L3 still shows `RUNNING` and Pkts climbs).
+- **Listen (safe):** `sniffmultissid` → OLED `MultiSSID Det` / `RUNNING`, Pkts climbs.
 - **Trigger [TX, own gear]:** on a **second Marauder**, generate many SSIDs from one
   radio: `ssid -a -g 30` then `attack -t beacon`. That's exactly the multi-SSID/
   karma pattern this detects.
