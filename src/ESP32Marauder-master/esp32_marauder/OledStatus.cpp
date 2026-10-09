@@ -3,12 +3,10 @@
 #ifdef HAS_OLED_STATUS
 
 #include <Wire.h>
-#include <LinkedList.h>
 #include "WiFiScan.h"
 
-// Globals owned by the sketch; we only read them.
+// Global owned by the sketch; we only read it.
 extern WiFiScan wifi_scan_obj;
-extern LinkedList<AccessPoint>* access_points;
 
 static const uint32_t OLED_REFRESH_MS = 250;   // ~4 Hz
 static const char HEARTBEAT[4] = {'|', '/', '-', '\\'};
@@ -41,6 +39,12 @@ void OledStatus::begin() {
   #endif
 
   this->u8g2.setI2CAddress(this->addr << 1);   // U8g2 wants the 8-bit address
+  // 100kHz rather than the 400kHz default: the status display updates reliably
+  // while the WiFi radio is active (sendBuffer completes on the MCU either way -
+  // verified by trace - but 400kHz I2C can go marginal under radio EMI/load,
+  // leaving the glass stuck on the last frame). 100kHz is the robust choice for
+  // a low-rate status readout.
+  this->u8g2.setBusClock(100000);
   this->u8g2.begin();
   this->u8g2.setFont(u8g2_font_6x10_tf);       // ~6px wide, 10px tall -> 6 lines fit
   this->ok = true;
@@ -100,12 +104,16 @@ void OledStatus::draw() {
   uint8_t  mode    = wifi_scan_obj.currentScanMode;
   bool     running = wifi_scan_obj.scanning();
   uint8_t  ch      = wifi_scan_obj.set_channel;
-  uint16_t aps     = access_points ? access_points->size() : 0;
   uint32_t secs    = millis() / 1000;
+  // Firmware's existing per-frame tally (no parallel counting). Marauder only
+  // increments these in sniffraw (WIFI_SCAN_RAW_CAPTURE); sniffbeacon/probe/
+  // scanall paths keep no counter, so Pkts stays 0 there (the heartbeat is the
+  // liveness cue in those modes). Counters reset at each scan start.
+  uint32_t pkts    = wifi_scan_obj.mgmt_frames + wifi_scan_obj.data_frames;
 
   char l1[24], l4[24], l5[24];
   snprintf(l1, sizeof(l1), "ESP32 Marauder %c", HEARTBEAT[this->beat & 3]);
-  snprintf(l4, sizeof(l4), "APs found: %u", (unsigned)aps);
+  snprintf(l4, sizeof(l4), "Pkts: %lu", (unsigned long)pkts);
   snprintf(l5, sizeof(l5), "Ch:%u  Up:%lum%02lus",
            (unsigned)ch, (unsigned long)(secs / 60), (unsigned long)(secs % 60));
 
