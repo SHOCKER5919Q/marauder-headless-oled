@@ -440,6 +440,15 @@
       #define OLED_ADDR 0x3C   // confirmed at boot via I2C probe (prints to serial)
       //#define OLED_SH1106    // uncomment if the panel is an SH1106 (image shifted ~2px / wrapped)
     #endif
+
+    // Onboard activity LED (the DevKitC blue LED on GPIO2). Solid ON when idle,
+    // heartbeat-blink while any scan/sniff/attack runs. Standalone - NOT the
+    // stock HAS_ACT_LED (that is steady-on-during-activity on a different pin).
+    #define HAS_STATUS_LED
+    #ifdef HAS_STATUS_LED
+      #define STATUS_LED_PIN 2         // onboard LED on most ESP32 DevKitC boards
+      #define STATUS_LED_ACTIVE_HIGH   // comment out if your LED is wired active-low
+    #endif
   #endif
 
   #ifdef MARAUDER_FLIPPER

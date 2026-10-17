@@ -85,6 +85,10 @@ Settings settings_obj;
   #include "OledStatus.h"
   OledStatus oled_status_obj;
 #endif
+#ifdef HAS_STATUS_LED
+  #include "StatusLed.h"
+  StatusLed status_led_obj;
+#endif
 CommandLine cli_obj;
 ReconMission recon_obj;
 
@@ -419,6 +423,9 @@ void setup()
   #ifdef HAS_OLED_STATUS
     oled_status_obj.begin();
   #endif
+  #ifdef HAS_STATUS_LED
+    status_led_obj.begin();
+  #endif
 
   cli_obj.RunSetup();
 }
@@ -455,6 +462,9 @@ void loop()
   cli_obj.main(currentTime);
   #ifdef HAS_OLED_STATUS
     oled_status_obj.update(currentTime);
+  #endif
+  #ifdef HAS_STATUS_LED
+    status_led_obj.update(currentTime);
   #endif
   wifi_scan_obj.main(currentTime);
   recon_obj.main(currentTime);
