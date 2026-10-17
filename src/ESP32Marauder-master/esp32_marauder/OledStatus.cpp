@@ -131,18 +131,30 @@ static const Cat CATS[] = {
 };
 static const int N_CAT = NI(CATS);
 
-static const uint32_t OLED_REFRESH_MS = 120;
+static const uint32_t OLED_REFRESH_MS = 100;
 static const char HEARTBEAT[4] = {'|','/','-','\\'};
-static const int ROWS = 5;   // visible rows below the header
+static const int ROWS = 4;   // visible rows below the 12px header
 
-// label accessors for drawMenu
+// ---- 8x8 category icons (XBM, LSB-first) ----
+static const unsigned char IC_SCAN[8]  = {0x1e,0x21,0x21,0x21,0x1e,0x18,0x30,0x20};
+static const unsigned char IC_SHIELD[8]= {0x7e,0x7e,0x42,0x42,0x42,0x24,0x18,0x00};
+static const unsigned char IC_EYE[8]   = {0x00,0x3c,0x42,0x99,0x5a,0x3c,0x00,0x00};
+static const unsigned char IC_WARN[8]  = {0x08,0x08,0x1c,0x14,0x36,0x2a,0x22,0x3e};
+static const unsigned char IC_BT[8]    = {0x08,0x18,0x2a,0x1c,0x08,0x1c,0x2a,0x18};
+static const unsigned char IC_MASK[8]  = {0x00,0x7e,0xa5,0x81,0xa5,0x42,0x3c,0x00};
+static const unsigned char IC_LIST[8]  = {0x00,0x3d,0x00,0x3d,0x00,0x3d,0x00,0x00};
+static const unsigned char IC_NET[8]   = {0x42,0x42,0x24,0x18,0x18,0x24,0x42,0x42};
+static const unsigned char IC_SD[8]    = {0x3e,0x22,0x2a,0x22,0x22,0x22,0x3e,0x00};
+static const unsigned char IC_GEAR[8]  = {0x08,0x2a,0x1c,0x63,0x1c,0x2a,0x08,0x00};
+static const unsigned char* const CAT_ICONS[] = {
+  IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
+};
+
 static int g_feat_cat = 0;
 static const char* main_label(int i){ return CATS[i].name; }
 static const char* feat_label(int i){ return CATS[g_feat_cat].items[i].label; }
 
-// confirm selection (false=START, true=CANCEL)
 static bool g_confirm_cancel = false;
-// select-vs-hold tracking for the center button
 static bool g_c_prev = false, g_c_held = false;
 static uint32_t g_c_start = 0;
 static const uint32_t HOLD_MS = 500;
@@ -184,6 +196,7 @@ const char* OledStatus::modeLabel(uint8_t mode){
     case WIFI_SCAN_MULTISSID: return "MultiSSID Det";
     case WIFI_PACKET_MONITOR: return "Pkt Monitor";
     case WIFI_ATTACK_BEACON_SPAM: return "Beacon Spam";
+    case WIFI_ATTACK_BEACON_LIST: return "Beacon Spam";
     case WIFI_ATTACK_RICK_ROLL: return "Rickroll";
     case WIFI_ATTACK_AP_SPAM: return "AP Spam";
     case BT_SCAN_ALL: return "BLE Sniff";
@@ -199,34 +212,73 @@ void OledStatus::samplePkts(uint32_t now){
     this->pkt_rate = c - this->last_pkt_count;
     this->last_pkt_count = c;
     this->last_pkt_sample = now;
+    uint8_t v = this->pkt_rate==0?0:(this->pkt_rate<24?(uint8_t)this->pkt_rate:24);
+    this->rate_hist[this->rate_head] = v;
+    this->rate_head = (uint8_t)((this->rate_head+1) % sizeof(this->rate_hist));
   }
 }
 
 void OledStatus::showToast(const char* msg){
-  strncpy(this->toast, msg, sizeof(this->toast)-1);
+  strncpy(this->toast,msg,sizeof(this->toast)-1);
   this->toast[sizeof(this->toast)-1]=0;
   this->toast_until = millis()+1400;
 }
 
-// ---------- drawing ----------
+// ---- helpers ----
+void OledStatus::drawScrollbar(int top,int count,int visible){
+  if(count<=visible) return;
+  int trackY=13, trackH=50;
+  u8g2.drawVLine(126,trackY,trackH);
+  int barH = trackH*visible/count; if(barH<5)barH=5;
+  int barY = trackY + (trackH-barH)*top/(count-visible);
+  u8g2.drawBox(124,barY,4,barH);
+}
+void OledStatus::drawGraph(int x,int y,int w,int h){
+  u8g2.drawFrame(x,y,w,h);
+  int n=w-2; if(n>(int)sizeof(rate_hist)) n=(int)sizeof(rate_hist);
+  for(int i=0;i<n;i++){
+    int idx=(int)((rate_head - 1 - i + sizeof(rate_hist)) % sizeof(rate_hist));
+    int v=rate_hist[idx];
+    int bh=v*(h-2)/24; if(bh<0)bh=0;
+    if(bh>0) u8g2.drawVLine(x+w-2-i, y+h-1-bh, bh);
+  }
+}
+void OledStatus::drawSignal(int x,int y,int rssi){
+  int bars=(rssi+95)/13; if(bars<0)bars=0; if(bars>4)bars=4;
+  for(int b=0;b<4;b++){ int bh=2+b*2;
+    if(b<bars) u8g2.drawBox(x+b*3,y-bh,2,bh); else u8g2.drawFrame(x+b*3,y-bh,2,bh);
+  }
+}
+void OledStatus::drawRowText(int x,int y,int maxw,const char* text,bool selected){
+  int len=(int)strlen(text); int px=len*6;
+  if(selected && px>maxw){
+    int over=px-maxw+6;
+    int off=(int)(marquee % (over+16)); if(off>over) off=over;
+    u8g2.setClipWindow(x,y-10,x+maxw,y+2);
+    u8g2.drawStr(x-off,y,text);
+    u8g2.setMaxClipWindow();
+  } else {
+    char buf[26]; int m=maxw/6; if(m>25)m=25;
+    strncpy(buf,text,m); buf[m]=0; u8g2.drawStr(x,y,buf);
+  }
+}
+
 void OledStatus::drawSplash(){
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_7x13B_tf);
-  u8g2.drawStr(22,22,"MARAUDER");
-  u8g2.setFont(u8g2_font_6x10_tf);
-  u8g2.drawStr(10,38,"FIELD CONSOLE");
-  u8g2.drawStr(16,50,"WiFi / BLE");
-  u8g2.drawFrame(14,56,100,6);
-  uint32_t left = (this->splash_until>millis())?(this->splash_until-millis()):0;
-  int w = 98 - (int)(98L*left/1800);
-  if(w>0) u8g2.drawBox(15,57,w,4);
+  int cx=64, cy=18;
+  for(int r=4;r<=12;r+=4) u8g2.drawCircle(cx,cy,r,U8G2_DRAW_UPPER_RIGHT|U8G2_DRAW_UPPER_LEFT);
+  u8g2.drawDisc(cx,cy,2);
+  u8g2.setFont(u8g2_font_7x13B_tf); u8g2.drawStr(26,38,"MARAUDER");
+  u8g2.setFont(u8g2_font_5x8_tf);   u8g2.drawStr(28,48,"FIELD CONSOLE");
+  u8g2.drawFrame(14,54,100,7);
+  uint32_t left=(splash_until>millis())?(splash_until-millis()):0;
+  int w=96-(int)(96L*left/1800); if(w>0) u8g2.drawBox(16,56,w,3);
   u8g2.sendBuffer();
 }
 
-static void header(U8G2& g, const char* t, char beat){
+static void header(U8G2& g,const char* t,char beat){
   g.drawBox(0,0,128,12);
-  g.setDrawColor(0);
-  g.setFont(u8g2_font_6x10_tf);
+  g.setDrawColor(0); g.setFont(u8g2_font_6x10_tf);
   g.drawStr(2,10,t);
   char b[2]={beat,0}; g.drawStr(120,10,b);
   g.setDrawColor(1);
@@ -234,30 +286,33 @@ static void header(U8G2& g, const char* t, char beat){
 
 void OledStatus::drawDash(){
   u8g2.clearBuffer();
-  header(u8g2,"HOME", HEARTBEAT[beat&3]);
-  char l[22];
-  bool sc = wifi_scan_obj.scanning();
-  snprintf(l,sizeof(l),"WiFi CH:%u  %s",(unsigned)wifi_scan_obj.set_channel, sc?"RUN":"IDLE");
-  u8g2.drawStr(2,24,l);
-  snprintf(l,sizeof(l),"APs:%d  STAs:%d",access_points?access_points->size():0, stations?stations->size():0);
-  u8g2.drawStr(2,36,l);
-  snprintf(l,sizeof(l),"Pkts/s:%lu",(unsigned long)pkt_rate);
-  u8g2.drawStr(2,48,l);
-  snprintf(l,sizeof(l),"BLE ON  DEV:%d", ble_devices?ble_devices->size():0);
-  u8g2.drawStr(2,60,l);
+  header(u8g2,"HOME",HEARTBEAT[beat&3]);
+  u8g2.setFont(u8g2_font_6x10_tf);
+  char l[22]; bool sc=wifi_scan_obj.scanning();
+  snprintf(l,sizeof(l),"CH:%u  %s",(unsigned)wifi_scan_obj.set_channel, sc?"RUN":"IDLE");
+  u8g2.drawStr(2,23,l);
+  snprintf(l,sizeof(l),"AP:%d STA:%d",access_points?access_points->size():0, stations?stations->size():0);
+  u8g2.drawStr(2,35,l);
+  snprintf(l,sizeof(l),"P/s:%lu BLE:%d",(unsigned long)pkt_rate, ble_devices?ble_devices->size():0);
+  u8g2.drawStr(2,46,l);
+  drawGraph(2,50,124,13);
   u8g2.sendBuffer();
 }
 
-void OledStatus::drawMenu(const char* title,int idx,int top,int count,const char*(*label_of)(int)){
+void OledStatus::drawMenu(const char* title,int idx,int top,int count,const char*(*label_of)(int),bool is_main){
   u8g2.clearBuffer();
   char t[22]; snprintf(t,sizeof(t),"%s %d/%d",title,idx+1,count);
   header(u8g2,t,HEARTBEAT[beat&3]);
   for(int r=0;r<ROWS && (top+r)<count;r++){
-    int i=top+r; int y=22+r*10;
-    if(i==idx){ u8g2.drawBox(0,y-9,128,10); u8g2.setDrawColor(0);}
-    u8g2.drawStr(4,y,label_of(i));
-    if(i==idx) u8g2.setDrawColor(1);
+    int i=top+r; int y=24+r*12; bool seld=(i==idx);
+    if(seld){ u8g2.drawBox(0,y-10,124,12); u8g2.setDrawColor(0); }
+    if(is_main) u8g2.drawXBMP(2,y-9,8,8,CAT_ICONS[i]);
+    else { bool tx=CATS[g_feat_cat].items[i].flags & F_TX;
+           if(tx) u8g2.drawXBMP(2,y-9,8,8,IC_WARN); else u8g2.drawDisc(5,y-5,1); }
+    drawRowText(13,y,108,label_of(i),seld);
+    if(seld) u8g2.setDrawColor(1);
   }
+  drawScrollbar(top,count,ROWS);
   u8g2.sendBuffer();
 }
 
@@ -265,62 +320,71 @@ void OledStatus::drawConfirm(){
   const Item* it=(const Item*)pend_item;
   u8g2.clearBuffer();
   header(u8g2,"CONFIRM (TX)",HEARTBEAT[beat&3]);
-  u8g2.drawStr(2,24,it?it->label:"");
-  u8g2.drawStr(2,36,"Transmits/changes ID.");
-  // START / CANCEL
-  if(!g_confirm_cancel){u8g2.drawBox(6,44,54,14);u8g2.setDrawColor(0);}
-  u8g2.drawStr(16,54,"START"); u8g2.setDrawColor(1);
-  if(g_confirm_cancel){u8g2.drawBox(68,44,54,14);u8g2.setDrawColor(0);}
-  u8g2.drawStr(78,54,"CANCEL"); u8g2.setDrawColor(1);
+  u8g2.drawXBMP(2,15,8,8,IC_WARN);
+  u8g2.setFont(u8g2_font_6x10_tf); u8g2.drawStr(13,23,it?it->label:"");
+  u8g2.setFont(u8g2_font_5x8_tf);
+  u8g2.drawStr(2,35,"Transmits / changes ID.");
+  u8g2.drawStr(2,44,"Use only where legal.");
+  u8g2.setFont(u8g2_font_6x10_tf);
+  if(!g_confirm_cancel){u8g2.drawBox(6,50,52,13);u8g2.setDrawColor(0);} else u8g2.drawFrame(6,50,52,13);
+  u8g2.drawStr(16,60,"START"); u8g2.setDrawColor(1);
+  if(g_confirm_cancel){u8g2.drawBox(68,50,54,13);u8g2.setDrawColor(0);} else u8g2.drawFrame(68,50,54,13);
+  u8g2.drawStr(76,60,"CANCEL"); u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
 
 void OledStatus::drawRunning(){
   u8g2.clearBuffer();
-  header(u8g2,"RUNNING",HEARTBEAT[beat&3]);
-  u8g2.drawStr(2,24,modeLabel(wifi_scan_obj.currentScanMode));
-  char l[22];
-  snprintf(l,sizeof(l),"Pkts:%lu /s:%lu",(unsigned long)oled_frame_count,(unsigned long)pkt_rate);
-  u8g2.drawStr(2,36,l);
-  snprintf(l,sizeof(l),"CH:%u",(unsigned)wifi_scan_obj.set_channel);
-  u8g2.drawStr(2,48,l);
-  u8g2.drawStr(2,60,"SELECT = STOP");
+  header(u8g2,"[*] RUNNING",HEARTBEAT[beat&3]);
+  u8g2.setFont(u8g2_font_6x10_tf);
+  u8g2.drawStr(2,23,modeLabel(wifi_scan_obj.currentScanMode));
+  char l[22]; uint32_t el=(run_start?(millis()-run_start):0)/1000;
+  snprintf(l,sizeof(l),"Pkts:%lu  %02lu:%02lu",(unsigned long)oled_frame_count,(unsigned long)(el/60),(unsigned long)(el%60));
+  u8g2.setFont(u8g2_font_5x8_tf); u8g2.drawStr(2,33,l); u8g2.setFont(u8g2_font_6x10_tf);
+  drawGraph(2,36,124,14);
+  u8g2.drawStr(2,61,"SELECT = STOP");
   u8g2.sendBuffer();
 }
 
 void OledStatus::drawList(){
   u8g2.clearBuffer();
-  int count = access_points?access_points->size():0;
+  int count=access_points?access_points->size():0;
   char t[22]; snprintf(t,sizeof(t),"AP LIST %d",count);
   header(u8g2,t,HEARTBEAT[beat&3]);
-  if(count==0){ u8g2.drawStr(2,30,"empty - Scan first"); u8g2.sendBuffer(); return; }
+  if(count==0){ u8g2.setFont(u8g2_font_6x10_tf); u8g2.drawStr(2,34,"empty - Scan first"); u8g2.sendBuffer(); return; }
+  u8g2.setFont(u8g2_font_6x10_tf);
   for(int r=0;r<ROWS && (list_top+r)<count;r++){
-    int i=list_top+r; int y=22+r*10;
+    int i=list_top+r; int y=24+r*12; bool seld=(i==list_idx);
     AccessPoint ap=access_points->get(i);
-    char row[26];
-    String e=ap.essid; if(e.length()==0) e="(hidden)";
-    snprintf(row,sizeof(row),"%d %.14s %d",i,e.c_str(),(int)ap.rssi);
-    if(i==list_idx){u8g2.drawBox(0,y-9,128,10);u8g2.setDrawColor(0);}
-    u8g2.drawStr(2,y,row);
-    if(i==list_idx)u8g2.setDrawColor(1);
+    if(seld){ u8g2.drawBox(0,y-10,124,12); u8g2.setDrawColor(0); }
+    char row[26]; String e=ap.essid; if(e.length()==0)e="(hidden)";
+    snprintf(row,sizeof(row),"%d %.12s",i,e.c_str());
+    drawRowText(2,y,92,row,seld);
+    char rs[8]; snprintf(rs,sizeof(rs),"%d",(int)ap.rssi); u8g2.drawStr(98,y,rs);
+    if(seld) u8g2.setDrawColor(1);
   }
+  drawScrollbar(list_top,count,ROWS);
   u8g2.sendBuffer();
 }
 
 void OledStatus::drawChan(){
   u8g2.clearBuffer();
   header(u8g2,"SET CHANNEL",HEARTBEAT[beat&3]);
-  char l[22]; snprintf(l,sizeof(l),"Channel: %d",chan_val);
-  u8g2.setFont(u8g2_font_7x13B_tf); u8g2.drawStr(20,38,l); u8g2.setFont(u8g2_font_6x10_tf);
-  u8g2.drawStr(2,60,"UP/DN  SELECT=set");
+  u8g2.setFont(u8g2_font_6x10_tf); u8g2.drawStr(34,24,"Channel");
+  char cv[4]; snprintf(cv,sizeof(cv),"%d",chan_val);
+  u8g2.setFont(u8g2_font_logisoso16_tn);
+  u8g2.drawStr(chan_val<10?60:54,44,cv);
+  u8g2.setFont(u8g2_font_6x10_tf);
+  u8g2.drawFrame(10,48,108,7);
+  int sx=10+(chan_val-1)*103/13; u8g2.drawBox(sx,47,4,9);
+  u8g2.drawStr(2,62,"UP/DN  SELECT=set");
   u8g2.sendBuffer();
 }
 
 void OledStatus::drawToast(){
-  // overlay a small box with the toast text
-  int w=120, x=4, y=26, h=16;
-  u8g2.setDrawColor(1); u8g2.drawBox(x,y,w,h);
-  u8g2.setDrawColor(0); u8g2.drawStr(x+4,y+11,toast); u8g2.setDrawColor(1);
+  int w=118,x=5,y=24,h=18;
+  u8g2.setDrawColor(1); u8g2.drawRBox(x,y,w,h,3);
+  u8g2.setDrawColor(0); u8g2.setFont(u8g2_font_6x10_tf); u8g2.drawStr(x+6,y+12,toast); u8g2.setDrawColor(1);
 }
 
 // ---------- run a feature item ----------
@@ -337,7 +401,7 @@ void OledStatus::runItem(const void* item){
     }
   }
   if(cmd.length()) cli_obj.runCommand(cmd);
-  if(it->flags & F_SCAN){ this->screen=RUNNINGS; }
+  if(it->flags & F_SCAN){ this->run_start=millis(); this->screen=RUNNINGS; }
   else { showToast("sent"); this->screen=FEAT; }
   this->pend_target=-1; this->pend_item=0;
 }
@@ -348,6 +412,7 @@ void OledStatus::handleButtons(uint32_t now){
   // call on these, so its internal state stays consistent).
   bool up=u_btn.justPressed();
   bool dn=d_btn.justPressed();
+  if(up||dn) this->marquee=0;
   // CENTER: driven purely from isPressedNow() + our own timer, because the
   // Switches justPressed()/justReleased() pair share one 'pressed' flag and
   // would consume each other's edge. short press = SELECT, hold = BACK.
@@ -444,12 +509,13 @@ void OledStatus::update(uint32_t now){
   if((now - this->last_draw) < OLED_REFRESH_MS) return;
   this->last_draw=now;
   this->beat++;
+  this->marquee++;
 
   switch(screen){
     case SPLASH: drawSplash(); return;
     case DASH: drawDash(); break;
-    case MAIN: drawMenu("MENU",cat_idx,cat_top,N_CAT,main_label); break;
-    case FEAT: drawMenu(CATS[g_feat_cat].name,feat_idx,feat_top,CATS[g_feat_cat].n,feat_label); break;
+    case MAIN: drawMenu("MENU",cat_idx,cat_top,N_CAT,main_label,true); break;
+    case FEAT: drawMenu(CATS[g_feat_cat].name,feat_idx,feat_top,CATS[g_feat_cat].n,feat_label,false); break;
     case CONFIRMS: drawConfirm(); break;
     case RUNNINGS: drawRunning(); break;
     case LISTS: drawList(); break;

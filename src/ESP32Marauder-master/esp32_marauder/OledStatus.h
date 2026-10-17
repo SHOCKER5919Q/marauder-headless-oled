@@ -50,10 +50,17 @@ class OledStatus {
     uint32_t toast_until = 0;
     char     toast[22] = {0};
 
+    // animation / visuals
+    uint8_t  rate_hist[46] = {0};   // pkts/s history for the bar graph
+    uint8_t  rate_head = 0;
+    int16_t  marquee = 0;           // horizontal scroll for long labels
+    uint32_t marquee_t = 0;
+    uint32_t run_start = 0;         // elapsed timer on the running screen
+
     void drawSplash();
     void drawDash();
     void drawMenu(const char* title, int idx, int top, int count,
-                  const char* (*label_of)(int));
+                  const char* (*label_of)(int), bool is_main);
     void drawConfirm();
     void drawRunning();
     void drawList();
@@ -65,6 +72,10 @@ class OledStatus {
     void runItem(const void* item);
     void samplePkts(uint32_t now);
     const char* modeLabel(uint8_t mode);
+    void drawScrollbar(int top,int count,int visible);
+    void drawGraph(int x,int y,int w,int h);
+    void drawSignal(int x,int y,int rssi);
+    void drawRowText(int x,int y,int maxw,const char* text,bool selected);
 };
 
 #endif // HAS_OLED_STATUS
