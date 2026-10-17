@@ -146,6 +146,8 @@ static const unsigned char IC_LIST[8]  = {0x00,0x3d,0x00,0x3d,0x00,0x3d,0x00,0x0
 static const unsigned char IC_NET[8]   = {0x42,0x42,0x24,0x18,0x18,0x24,0x42,0x42};
 static const unsigned char IC_SD[8]    = {0x3e,0x22,0x2a,0x22,0x22,0x22,0x3e,0x00};
 static const unsigned char IC_GEAR[8]  = {0x08,0x2a,0x1c,0x63,0x1c,0x2a,0x08,0x00};
+static const unsigned char IC_WIFI[8]  = {0x80,0x80,0xa0,0xa0,0xa8,0xa8,0xaa,0xaa};
+static const unsigned char IC_BATT[8]  = {0x00,0x7e,0x43,0x5b,0x5b,0x43,0x7e,0x00};
 static const unsigned char* const CAT_ICONS[] = {
   IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
 };
@@ -317,16 +319,32 @@ static void header(U8G2& g,const char* t,char beat){
 
 void OledStatus::drawDash(){
   u8g2.clearBuffer();
-  header(u8g2,"HOME",HEARTBEAT[beat&3]);
+  // --- top status bar ---
+  u8g2.drawBox(0,0,128,11); u8g2.setDrawColor(0);
+  u8g2.drawXBMP(2,2,8,8,IC_WIFI);
+  u8g2.setFont(u8g2_font_5x8_tf);
+  uint32_t up=millis()/1000; char cl[12];
+  snprintf(cl,sizeof(cl),"UP %lu:%02lu",(unsigned long)(up/60),(unsigned long)(up%60));
+  u8g2.drawStr(42,8,cl);
+  char hb[2]={HEARTBEAT[beat&3],0}; u8g2.drawStr(100,8,hb);
+  u8g2.drawXBMP(112,2,8,8,IC_BATT);
+  u8g2.setDrawColor(1);
+  // --- line 1: channel + MON/IDLE badge + BLE count ---
   u8g2.setFont(u8g2_font_6x10_tf);
-  char l[22]; bool sc=wifi_scan_obj.scanning();
-  snprintf(l,sizeof(l),"CH:%u  %s",(unsigned)wifi_scan_obj.set_channel, sc?"RUN":"IDLE");
-  u8g2.drawStr(2,23,l);
-  snprintf(l,sizeof(l),"AP:%d STA:%d",access_points?access_points->size():0, stations?stations->size():0);
-  u8g2.drawStr(2,35,l);
-  snprintf(l,sizeof(l),"P/s:%lu BLE:%d",(unsigned long)pkt_rate, ble_devices?ble_devices->size():0);
-  u8g2.drawStr(2,46,l);
-  drawGraph(2,50,124,13);
+  bool sc=wifi_scan_obj.scanning();
+  char l[24]; snprintf(l,sizeof(l),"CH:%u",(unsigned)wifi_scan_obj.set_channel);
+  u8g2.drawStr(2,21,l);
+  const char* badge = sc?"MON":"IDLE"; int bw=(int)strlen(badge)*6+5;
+  u8g2.drawFrame(36,13,bw,10); u8g2.drawStr(39,21,badge);
+  u8g2.drawXBMP(88,13,8,8,IC_BT);
+  snprintf(l,sizeof(l),"%d",ble_devices?ble_devices->size():0); u8g2.drawStr(98,21,l);
+  // --- line 2: AP / STA / pkts-per-sec ---
+  snprintf(l,sizeof(l),"AP:%d STA:%d P/s:%lu",access_points?access_points->size():0,
+           stations?stations->size():0,(unsigned long)pkt_rate);
+  u8g2.drawStr(2,31,l);
+  // --- spectrum graph ---
+  drawGraph(2,34,124,21);
+  u8g2.setFont(u8g2_font_5x8_tf); u8g2.drawStr(30,63,"SELECT for Menu");
   u8g2.sendBuffer();
 }
 
@@ -366,14 +384,20 @@ void OledStatus::drawConfirm(){
 
 void OledStatus::drawRunning(){
   u8g2.clearBuffer();
-  header(u8g2,"[*] RUNNING",HEARTBEAT[beat&3]);
+  // title bar + blinking RUN badge
+  u8g2.drawBox(0,0,128,11); u8g2.setDrawColor(0);
   u8g2.setFont(u8g2_font_6x10_tf);
-  u8g2.drawStr(2,23,modeLabel(wifi_scan_obj.currentScanMode));
-  char l[22]; uint32_t el=(run_start?(millis()-run_start):0)/1000;
-  snprintf(l,sizeof(l),"Pkts:%lu  %02lu:%02lu",(unsigned long)oled_frame_count,(unsigned long)(el/60),(unsigned long)(el%60));
-  u8g2.setFont(u8g2_font_5x8_tf); u8g2.drawStr(2,33,l); u8g2.setFont(u8g2_font_6x10_tf);
-  drawGraph(2,36,124,14);
-  u8g2.drawStr(2,61,"SELECT = STOP");
+  char t[22]; snprintf(t,sizeof(t),"[*] %.13s",modeLabel(wifi_scan_obj.currentScanMode));
+  u8g2.drawStr(2,9,t);
+  if((beat/3)&1) u8g2.drawStr(104,9,"RUN");
+  u8g2.setDrawColor(1);
+  char l[24]; uint32_t el=(run_start?(millis()-run_start):0)/1000;
+  snprintf(l,sizeof(l),"CH:%u  Pkts:%lu",(unsigned)wifi_scan_obj.set_channel,(unsigned long)oled_frame_count);
+  u8g2.drawStr(2,21,l);
+  snprintf(l,sizeof(l),"Rate:%lu/s  %02lu:%02lu",(unsigned long)pkt_rate,(unsigned long)(el/60),(unsigned long)(el%60));
+  u8g2.drawStr(2,31,l);
+  drawGraph(2,34,124,20);
+  u8g2.setFont(u8g2_font_5x8_tf); u8g2.drawStr(22,63,"SELECT to STOP");
   u8g2.sendBuffer();
 }
 
