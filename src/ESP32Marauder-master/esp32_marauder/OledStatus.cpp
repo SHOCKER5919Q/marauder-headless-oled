@@ -150,6 +150,23 @@ static const unsigned char* const CAT_ICONS[] = {
   IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
 };
 
+static const unsigned char BAT_BMP[] = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9c, 0x03, 0x00, 0x00, 0x00,
+  0x30, 0x00, 0x00, 0xfe, 0xfc, 0x01, 0x00, 0x0c, 0x78, 0x00, 0x00, 0xff,
+  0x7f, 0x0e, 0x00, 0x1e, 0xfc, 0x78, 0xc0, 0xff, 0xff, 0x07, 0x3c, 0x3f,
+  0xfe, 0xfd, 0xe0, 0xff, 0xff, 0x3f, 0xfc, 0xfe, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xfd, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3e,
+  0xfc, 0xff, 0xff, 0xff, 0xff, 0xff, 0xbf, 0x07, 0xf0, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xe7, 0x00, 0xc0, 0xff, 0xff, 0xff, 0xff, 0x1f, 0x06, 0x00,
+  0x00, 0xfe, 0x3f, 0xff, 0x7f, 0x30, 0x00, 0x00, 0x00, 0xf0, 0x0f, 0xfc,
+  0x87, 0x01, 0x00, 0x00, 0x00, 0x80, 0x07, 0xf0, 0x31, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x04, 0xc0, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0,
+  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+};
+
 static int g_feat_cat = 0;
 static const char* main_label(int i){ return CATS[i].name; }
 static const char* feat_label(int i){ return CATS[g_feat_cat].items[i].label; }
@@ -177,7 +194,7 @@ void OledStatus::begin() {
   this->u8g2.setFont(u8g2_font_6x10_tf);
   this->ok=true;
   this->screen=SPLASH;
-  this->splash_until=millis()+1800;
+  this->splash_until=millis()+2600;
 }
 
 const char* OledStatus::modeLabel(uint8_t mode){
@@ -264,15 +281,29 @@ void OledStatus::drawRowText(int x,int y,int maxw,const char* text,bool selected
 }
 
 void OledStatus::drawSplash(){
-  u8g2.clearBuffer();
-  int cx=64, cy=18;
-  for(int r=4;r<=12;r+=4) u8g2.drawCircle(cx,cy,r,U8G2_DRAW_UPPER_RIGHT|U8G2_DRAW_UPPER_LEFT);
-  u8g2.drawDisc(cx,cy,2);
-  u8g2.setFont(u8g2_font_7x13B_tf); u8g2.drawStr(26,38,"MARAUDER");
-  u8g2.setFont(u8g2_font_5x8_tf);   u8g2.drawStr(28,48,"FIELD CONSOLE");
-  u8g2.drawFrame(14,54,100,7);
+  const uint32_t total=2600;
   uint32_t left=(splash_until>millis())?(splash_until-millis()):0;
-  int w=96-(int)(96L*left/1800); if(w>0) u8g2.drawBox(16,56,w,3);
+  uint32_t t=total-left;                         // elapsed ms
+  u8g2.clearBuffer();
+  // bat logo wipes in left-to-right
+  int reveal=(t<700)?(int)(t*128/700):128;
+  u8g2.setClipWindow(0,0,reveal,24);
+  u8g2.drawXBMP(32,1,64,20,BAT_BMP);
+  u8g2.setMaxClipWindow();
+  // sonar-ping wifi arc above the head once revealed
+  if(t>600){
+    int pr=2+(int)(((t-600)%800)*12/800);
+    u8g2.drawCircle(64,7,pr,U8G2_DRAW_UPPER_LEFT|U8G2_DRAW_UPPER_RIGHT);
+  }
+  u8g2.setFont(u8g2_font_7x13B_tf); u8g2.drawStr(30,36,"MARAUDER");
+  u8g2.setFont(u8g2_font_5x8_tf);   u8g2.drawStr(26,45,"FIELD CONSOLE");
+  // progress bar
+  u8g2.drawFrame(14,49,100,7);
+  int w=(int)(96L*t/total); if(w>96)w=96; if(w>0) u8g2.drawBox(16,51,w,3);
+  // BOOTING with cycling dots
+  int dots=(int)((t/300)%4); char bd[12]="BOOTING";
+  for(int i=0;i<dots&&i<3;i++) strcat(bd,".");
+  u8g2.drawStr(42,63,bd);
   u8g2.sendBuffer();
 }
 
