@@ -54,6 +54,22 @@ Ch:7  Up:3m12s       L5: current channel + uptime
   mode and resets when you start a new scan. The OLED redraws ~3–4x/sec, so `Pkts`
   may lag the live frame count by a few — that's expected for a status display.
 
+### Read the onboard LED
+A second, at-a-glance status indicator on the board's **onboard LED (GPIO2)**:
+
+| Board state | LED |
+|---|---|
+| **Idle** (nothing running) | **solid ON** |
+| **Active** (any scan / sniff / attack running) | **heartbeat blink** (~3 Hz) |
+
+- Mirrors L3 on the OLED: it tracks `wifi_scan_obj.scanning()`, so the instant you
+  start `scanall`/`sniffbeacon`/an attack it blinks, and on `/stop` it goes solid.
+- Independent of the OLED (works even if the OLED is unplugged).
+- Pin/polarity are set in the `GENERIC_ESP32` block of `configs.h`: `STATUS_LED_PIN`
+  (default `2`) and `STATUS_LED_ACTIVE_HIGH`. If the LED does nothing, your board
+  may lack a user LED on GPIO2 — change the pin. If it's inverted (ON when it should
+  be OFF), comment out `STATUS_LED_ACTIVE_HIGH`. Both need a reflash.
+
 ---
 
 ## 2. Wrapper controls
@@ -259,6 +275,8 @@ sends it, and the board just no-ops.
 | `Permission denied` on the port | Your user must be in the `uucp` group (you are). Check `ls -l /dev/ttyUSB2` → `root uucp`; if you were removed, `sudo usermod -aG uucp $USER` then re-login. |
 | Wrong port / not `ttyUSB2` | `arduino-cli board list` to find it, then `marauder -p /dev/ttyUSBx`. |
 | OLED blank | Check boot prints `[OLED] device found at 0x3C`. If "no I2C device", it's wiring/power (SDA=21, SCL=22, 3V3, GND), not code. |
+| Onboard LED dark / never blinks | Board may have no user LED on GPIO2 — change `STATUS_LED_PIN` in the `GENERIC_ESP32` block and reflash. |
+| Onboard LED inverted (ON when it should be OFF) | LED is active-low — comment out `STATUS_LED_ACTIVE_HIGH` and reflash. |
 | OLED image shifted ~2px / wrapped | Panel is an **SH1106**, not SSD1306 — set `#define OLED_SH1106` in configs.h (GENERIC_ESP32 block) and reflash. (Ours is SSD1306; no flip needed.) |
 | OLED froze on a scan (old symptom) | Was 400 kHz I2C going marginal under WiFi load; already fixed by running the bus at 100 kHz. If it recurs, suspect OLED power/wiring under radio load. |
 | `Pkts` looks a few behind the live count | Expected — the OLED redraws ~3–4x/sec, a few frames behind. Not a bug. |
@@ -270,14 +288,14 @@ sends it, and the board just no-ops.
 ## 7. Quick smoke test (2 minutes)
 
 ```
-marauder                 # from anywhere; OLED shows Idle / STOPPED
-scanall                  # table fills with real APs; OLED Scan All / RUNNING / Pkts↑
+marauder                 # from anywhere; OLED shows Idle / STOPPED, onboard LED solid ON
+scanall                  # table fills with real APs; OLED Scan All / RUNNING / Pkts↑; LED blinks
 /sort last               # table reorders by most-recently-seen
 /raw                     # frames scroll raw
 /table                   # back to aggregated table
-/stop                    # table clears; OLED Idle / STOPPED
-sniffbeacon              # OLED Beacon Sniff / RUNNING; Pkts climbs from 0
-Ctrl-C                   # stopscan + clear (session stays open)
+/stop                    # table clears; OLED Idle / STOPPED; LED back to solid ON
+sniffbeacon              # OLED Beacon Sniff / RUNNING; Pkts climbs from 0; LED blinks
+Ctrl-C                   # stopscan + clear (session stays open); LED solid again
 ls /                     # SD lists SCRIPTS (confirms card mounted)
 /quit                    # exit
 ```
