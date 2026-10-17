@@ -177,6 +177,7 @@ static bool g_confirm_cancel = false;
 static bool g_c_prev = false, g_c_held = false;
 static uint32_t g_c_start = 0;
 static const uint32_t HOLD_MS = 500;
+static uint32_t g_last_fine = 0;   // packet count at last graph sample
 
 void OledStatus::begin() {
   Wire.begin(OLED_SDA, OLED_SCL);
@@ -231,9 +232,6 @@ void OledStatus::samplePkts(uint32_t now){
     this->pkt_rate = c - this->last_pkt_count;
     this->last_pkt_count = c;
     this->last_pkt_sample = now;
-    uint8_t v = this->pkt_rate==0?0:(this->pkt_rate<24?(uint8_t)this->pkt_rate:24);
-    this->rate_hist[this->rate_head] = v;
-    this->rate_head = (uint8_t)((this->rate_head+1) % sizeof(this->rate_hist));
   }
 }
 
@@ -254,12 +252,14 @@ void OledStatus::drawScrollbar(int top,int count,int visible){
 }
 void OledStatus::drawGraph(int x,int y,int w,int h){
   u8g2.drawFrame(x,y,w,h);
-  int n=w-2; if(n>(int)sizeof(rate_hist)) n=(int)sizeof(rate_hist);
+  int n=w-2; int maxh=h-2;
   for(int i=0;i<n;i++){
     int idx=(int)((rate_head - 1 - i + sizeof(rate_hist)) % sizeof(rate_hist));
-    int v=rate_hist[idx];
-    int bh=v*(h-2)/24; if(bh<0)bh=0;
-    if(bh>0) u8g2.drawVLine(x+w-2-i, y+h-1-bh, bh);
+    int dh = rate_hist[idx]*maxh/24;                 // real activity
+    int ph = ((i*5 + beat*2) & 31); int tw = ph<16?ph:(31-ph);  // scrolling triangle wave 0..15
+    int fh = 1 + tw*(maxh/3)/15;                      // animated idle floor (<=1/3)
+    int bh = dh>fh?dh:fh; if(bh<1)bh=1; if(bh>maxh)bh=maxh;
+    u8g2.drawVLine(x+w-2-i, y+h-1-bh, bh);
   }
 }
 void OledStatus::drawSignal(int x,int y,int rssi){
@@ -565,6 +565,10 @@ void OledStatus::update(uint32_t now){
   this->last_draw=now;
   this->beat++;
   this->marquee++;
+  // fine-grained activity sample (per refresh ~10 Hz) for a lively spectrum
+  { uint32_t c=oled_frame_count; uint32_t d=c-g_last_fine; g_last_fine=c;
+    this->rate_hist[this->rate_head] = (uint8_t)(d>24?24:d);
+    this->rate_head = (uint8_t)((this->rate_head+1) % sizeof(this->rate_hist)); }
 
   switch(screen){
     case SPLASH: drawSplash(); return;
