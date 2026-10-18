@@ -72,6 +72,9 @@ class OledStatus {
     void runItem(const void* item);
     void samplePkts(uint32_t now);
     const char* modeLabel(uint8_t mode);
+    int  powerState();     // 0=external/plug, 1=charging, 2=battery
+    int  batteryPct();
+    void drawPower(int x,int y);
     void drawScrollbar(int top,int count,int visible);
     void drawGraph(int x,int y,int w,int h);
     void drawSignal(int x,int y,int rssi);

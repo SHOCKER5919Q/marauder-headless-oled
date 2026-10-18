@@ -147,7 +147,6 @@ static const unsigned char IC_NET[8]   = {0x42,0x42,0x24,0x18,0x18,0x24,0x42,0x4
 static const unsigned char IC_SD[8]    = {0x3e,0x22,0x2a,0x22,0x22,0x22,0x3e,0x00};
 static const unsigned char IC_GEAR[8]  = {0x08,0x2a,0x1c,0x63,0x1c,0x2a,0x08,0x00};
 static const unsigned char IC_WIFI[8]  = {0x80,0x80,0xa0,0xa0,0xa8,0xa8,0xaa,0xaa};
-static const unsigned char IC_BATT[8]  = {0x00,0x7e,0x43,0x5b,0x5b,0x43,0x7e,0x00};
 static const unsigned char* const CAT_ICONS[] = {
   IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
 };
@@ -195,6 +194,12 @@ void OledStatus::begin() {
   this->u8g2.setBusClock(100000);
   this->u8g2.begin();
   this->u8g2.setFont(u8g2_font_6x10_tf);
+  #if defined(HAS_BATTERY_SENSE) && defined(BATT_VBUS_PIN)
+    pinMode(BATT_VBUS_PIN, INPUT);
+  #endif
+  #if defined(HAS_BATTERY_SENSE) && defined(BATT_CHRG_PIN)
+    pinMode(BATT_CHRG_PIN, INPUT_PULLUP);
+  #endif
   this->ok=true;
   this->screen=SPLASH;
   this->splash_until=millis()+2600;
@@ -223,6 +228,59 @@ const char* OledStatus::modeLabel(uint8_t mode){
     case BT_SCAN_SKIMMERS: return "Skimmer Det";
     case BT_SCAN_AIRTAG: return "AirTag Sniff";
     default: return "Active";
+  }
+}
+
+// ---- power / battery indicator ----
+enum { PWR_EXTERNAL=0, PWR_CHARGING=1, PWR_BATTERY=2 };
+
+int OledStatus::batteryPct(){
+#if defined(BATT_UI_DEMO)
+  int v=(int)((millis()/120)%200); return v>100?200-v:v;     // fake ramp 0..100..0
+#elif defined(HAS_BATTERY_SENSE)
+  long mv=(long)analogReadMilliVolts(BATT_ADC_PIN)*BATT_DIV_MUL; // divider -> battery mV
+  long pct=(mv-3300)*100/(4200-3300);                            // 3.3V=0%  4.2V=100%
+  if(pct<0)pct=0; if(pct>100)pct=100; return (int)pct;
+#else
+  return 0;
+#endif
+}
+
+int OledStatus::powerState(){
+#if defined(BATT_UI_DEMO)
+  switch((millis()/5000)%3){ case 1: return PWR_CHARGING; case 2: return PWR_EXTERNAL; default: return PWR_BATTERY; }
+#elif defined(HAS_BATTERY_SENSE)
+  bool ext=false, chg=false;
+  #ifdef BATT_VBUS_PIN
+    ext = digitalRead(BATT_VBUS_PIN);          // HIGH = USB 5V present
+  #endif
+  #ifdef BATT_CHRG_PIN
+    chg = (digitalRead(BATT_CHRG_PIN)==LOW);   // TP4056 CHRG active-low
+  #endif
+  if(chg) return PWR_CHARGING;
+  if(ext) return PWR_EXTERNAL;
+  return PWR_BATTERY;
+#else
+  return PWR_EXTERNAL;   // nothing wired -> honest default: externally powered
+#endif
+}
+
+// draws a ~13x7 glyph at (x,y) in the current draw color
+void OledStatus::drawPower(int x,int y){
+  int st=powerState();
+  if(st==PWR_EXTERNAL){                 // plug
+    u8g2.drawBox(x+7,y+1,6,5);          // body
+    u8g2.drawHLine(x+4,y+2,3); u8g2.drawHLine(x+4,y+4,3);   // leads
+    u8g2.drawBox(x+1,y+1,2,2); u8g2.drawBox(x+1,y+4,2,2);   // prong tips
+    return;
+  }
+  // battery shell + nub
+  u8g2.drawFrame(x,y,12,7); u8g2.drawBox(x+12,y+2,1,3);
+  if(st==PWR_CHARGING){                 // lightning bolt inside
+    u8g2.drawLine(x+7,y+1,x+4,y+4); u8g2.drawLine(x+4,y+4,x+7,y+4); u8g2.drawLine(x+7,y+4,x+5,y+6);
+  } else {                              // fill by percent
+    int fw=batteryPct()*10/100; if(fw<0)fw=0; if(fw>10)fw=10;
+    if(fw>0) u8g2.drawBox(x+1,y+1,fw,5);
   }
 }
 
@@ -327,7 +385,10 @@ void OledStatus::drawDash(){
   snprintf(cl,sizeof(cl),"UP %lu:%02lu",(unsigned long)(up/60),(unsigned long)(up%60));
   u8g2.drawStr(42,8,cl);
   char hb[2]={HEARTBEAT[beat&3],0}; u8g2.drawStr(100,8,hb);
-  u8g2.drawXBMP(112,2,8,8,IC_BATT);
+  #ifdef HAS_BATTERY_UI
+    if(powerState()==PWR_BATTERY){ char pb[5]; snprintf(pb,sizeof(pb),"%d",batteryPct()); u8g2.drawStr(94,8,pb); drawPower(113,2); }
+    else drawPower(113,2);
+  #endif
   u8g2.setDrawColor(1);
   // --- line 1: channel + MON/IDLE badge + BLE count ---
   u8g2.setFont(u8g2_font_6x10_tf);

@@ -449,6 +449,20 @@
       #define STATUS_LED_PIN 2         // onboard LED on most ESP32 DevKitC boards
       #define STATUS_LED_ACTIVE_HIGH   // comment out if your LED is wired active-low
     #endif
+
+    // Battery / power indicator (top-right of the dashboard). Sensing is NOT
+    // wired yet, so with everything below commented out it honestly shows the
+    // PLUG icon (externally powered). Wire a divider + flip HAS_BATTERY_SENSE to
+    // make the % real; BATT_UI_DEMO just previews the look with fake values.
+    #define HAS_BATTERY_UI
+    #ifdef HAS_BATTERY_UI
+      //#define BATT_UI_DEMO            // preview only: cycles battery%/charging/plug (FAKE)
+      //#define HAS_BATTERY_SENSE       // enable once a divider is wired:
+      //#define BATT_ADC_PIN  34        //   input-only ADC pin to the divider
+      //#define BATT_DIV_MUL  2         //   Vbatt = Vadc * MUL (2 = two equal resistors)
+      //#define BATT_VBUS_PIN 35        //   optional: reads HIGH when USB 5V present -> plug
+      //#define BATT_CHRG_PIN 33        //   optional: TP4056 CHRG, LOW while charging
+    #endif
   #endif
 
   #ifdef MARAUDER_FLIPPER
