@@ -526,9 +526,9 @@ void OledStatus::runItem(const void* item){
   // up the captive soft-AP. Two CLI calls, so it can't be a plain single cmd.
   if(cmd == "@twinportal"){
     if(pend_target>=0){
-      cli_obj.runCommand(String("cloneapmac -a ")+pend_target);        // store target BSSID
-      cli_obj.runCommand(String("evilportal -c setap ")+pend_target);  // broadcast target's exact SSID
-      cli_obj.runCommand("evilportal -c start");                       // begin() honors the set apName
+      // setap sets the portal's SSID AND arms the target-BSSID clone on the soft-AP
+      cli_obj.runCommand(String("evilportal -c setap ")+pend_target);
+      cli_obj.runCommand("evilportal -c start");
       this->run_start=millis(); this->screen=RUNNINGS;
     } else { showToast("pick a target"); this->screen=FEAT; }
     this->pend_target=-1; this->pend_item=0; return;

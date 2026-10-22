@@ -968,8 +968,11 @@ void CommandLine::runCommand(String input) {
         else if (et_command == "setap") {
           int target_ap_index = cmd_args.get(cmd_sw + 2).toInt();
           if ((target_ap_index >= 0) && (target_ap_index < access_points->size())) {
-            evil_portal_obj.setAP(access_points->get(target_ap_index).essid);
             AccessPoint new_ap = access_points->get(target_ap_index);
+            evil_portal_obj.setAP(new_ap.essid);
+            // evil-twin: also adopt the target's real BSSID on the portal soft-AP
+            memcpy(evil_portal_obj.target_mac, new_ap.bssid, 6);
+            evil_portal_obj.use_target_mac = true;
             new_ap.selected = true;
             access_points->set(target_ap_index, new_ap);
 
