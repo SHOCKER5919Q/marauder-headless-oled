@@ -76,6 +76,8 @@ static const Item I_TWIN[] = {
   // portal twin: clone target BSSID onto our AP iface, then bring up the captive
   // soft-AP. "@twinportal" is a macro intercepted in runItem(). Needs portal html on SD.
   {"portal twin(SD)","@twinportal",         F_TX|F_SELTGT|F_SCAN},
+  // combined clone-beacon + paced deauth (WIFI_ATTACK_MIMIC, heat-limited)
+  {"twin+deauth",    "attack -t mimic",     F_TX|F_SELTGT|F_SCAN},
 };
 static const Item I_BLE[] = {
   {"sniffbt airtag",  "sniffbt -t airtag",  F_SCAN},
@@ -232,6 +234,7 @@ const char* OledStatus::modeLabel(uint8_t mode){
     case WIFI_ATTACK_BEACON_LIST: return "Beacon Spam";
     case WIFI_ATTACK_RICK_ROLL: return "Rickroll";
     case WIFI_ATTACK_AP_SPAM: return "AP Spam";
+    case WIFI_ATTACK_MIMIC: return "Evil Twin";
     case BT_SCAN_ALL: return "BLE Sniff";
     case BT_SCAN_SKIMMERS: return "Skimmer Det";
     case BT_SCAN_AIRTAG: return "AirTag Sniff";
