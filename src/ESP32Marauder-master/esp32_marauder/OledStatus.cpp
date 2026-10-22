@@ -63,11 +63,11 @@ static const Item I_PASS[] = {
 };
 static const Item I_ATK[] = {
   {"deauth (target)", "attack -t deauth",   F_TX|F_SELTGT|F_SCAN},
-  {"beacon spam list","attack -t beacon -l",F_TX|F_SCAN},
+  {"beacon list(ssid)","attack -t beacon -l",F_TX|F_SCAN},  // needs ssid list (use 'ssid x5' first)
   {"beacon spam rand","attack -t beacon -r",F_TX|F_SCAN},
-  {"probe flood",     "attack -t probe",    F_TX|F_SCAN},
+  {"probe (target)",  "attack -t probe",    F_TX|F_SELTGT|F_SCAN},  // needs selected AP
   {"rickroll",        "attack -t rickroll", F_TX|F_SCAN},
-  {"evil portal",     "evilportal -c start",F_TX|F_SCAN},
+  {"evil portal(SD)", "evilportal -c start",F_TX|F_SCAN},   // needs portal html on SD
   {"karma (target)",  "karma -p",           F_TX|F_TARGET|F_SCAN},
 };
 static const Item I_BLE[] = {
@@ -450,7 +450,10 @@ void OledStatus::drawRunning(){
   u8g2.setFont(u8g2_font_6x10_tf);
   char t[22]; snprintf(t,sizeof(t),"[*] %.13s",modeLabel(wifi_scan_obj.currentScanMode));
   u8g2.drawStr(2,9,t);
-  if((beat/3)&1) u8g2.drawStr(104,9,"RUN");
+  // honest state: blink RUN only while the radio is actually in a scan/attack
+  // mode; otherwise say OFF (the command returned without starting).
+  if(wifi_scan_obj.scanning()){ if((beat/3)&1) u8g2.drawStr(104,9,"RUN"); }
+  else u8g2.drawStr(104,9,"OFF");
   u8g2.setDrawColor(1);
   char l[24]; uint32_t el=(run_start?(millis()-run_start):0)/1000;
   snprintf(l,sizeof(l),"CH:%u  Pkts:%lu",(unsigned)wifi_scan_obj.set_channel,(unsigned long)oled_frame_count);
@@ -620,6 +623,15 @@ void OledStatus::update(uint32_t now){
   if(screen==SPLASH && now>=splash_until) screen=DASH;
 
   if(screen!=SPLASH) handleButtons(now);
+
+  // Honesty guard: if we jumped to the RUNNING screen but the radio never
+  // entered a scan/attack mode within a short grace window, the command didn't
+  // start (missing targets, empty list, unsupported path). Don't fake "RUN" -
+  // tell the user and drop back to the feature menu.
+  if(screen==RUNNINGS && run_start && (now-run_start)>900 && !wifi_scan_obj.scanning()){
+    showToast("didn't start"); screen=FEAT; run_start=0;
+  }
+
   samplePkts(now);
 
   if((now - this->last_draw) < OLED_REFRESH_MS) return;
