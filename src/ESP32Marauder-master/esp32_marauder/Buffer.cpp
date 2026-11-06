@@ -122,10 +122,10 @@ void Buffer::add(const uint8_t* buf, uint32_t len, bool is_pcap){
 }
 
 void Buffer::append(wifi_promiscuous_pkt_t *packet, int len) {
-  #ifdef HAS_OLED_STATUS
-    // Count every captured frame for the OLED status line. This is the one
-    // chokepoint all capture modes (scanall/sniffbeacon/probe/raw/...) pass
-    // each frame through; the counter is owned by the OledStatus module.
+  #if defined(HAS_OLED_STATUS) || defined(HAS_TFT_UI)
+    // Count every captured frame for the status UI. This is the one chokepoint
+    // all capture modes (scanall/sniffbeacon/probe/raw/...) pass each frame
+    // through; the counters are owned by the active status-UI module.
     extern volatile uint32_t oled_frame_count;
     oled_frame_count++;
   #endif

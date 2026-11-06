@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "sections": [
+    {
+      "file": "home.md",
+      "title": "Getting Started"
+    },
+    {
+      "file": "navigation.md",
+      "title": "Button Navigation"
+    },
+    {
+      "file": "wifi_scanner.md",
+      "title": "Wi-Fi Scanner"
+    },
+    {
+      "file": "device_discovery.md",
+      "title": "Device Discovery"
+    },
+    {
+      "file": "packet_monitor.md",
+      "title": "Packet Monitor"
+    },
+    {
+      "file": "mac_configuration.md",
+      "title": "MAC Configuration"
+    },
+    {
+      "file": "sd_card.md",
+      "title": "Storage (SD)"
+    },
+    {
+      "file": "power.md",
+      "title": "Power & Battery"
+    },
+    {
+      "file": "troubleshooting.md",
+      "title": "Troubleshooting"
+    },
+    {
+      "file": "safety.md",
+      "title": "Safety & Authorized Use"
+    }
+  ]
+}

@@ -85,6 +85,10 @@ Settings settings_obj;
   #include "OledStatus.h"
   OledStatus oled_status_obj;
 #endif
+#ifdef HAS_TFT_UI
+  #include "TftUI.h"
+  TftUI tft_ui_obj;
+#endif
 #ifdef HAS_STATUS_LED
   #include "StatusLed.h"
   StatusLed status_led_obj;
@@ -423,6 +427,9 @@ void setup()
   #ifdef HAS_OLED_STATUS
     oled_status_obj.begin();
   #endif
+  #ifdef HAS_TFT_UI
+    tft_ui_obj.begin();
+  #endif
   #ifdef HAS_STATUS_LED
     status_led_obj.begin();
   #endif
@@ -462,6 +469,9 @@ void loop()
   cli_obj.main(currentTime);
   #ifdef HAS_OLED_STATUS
     oled_status_obj.update(currentTime);
+  #endif
+  #ifdef HAS_TFT_UI
+    tft_ui_obj.update(currentTime);
   #endif
   #ifdef HAS_STATUS_LED
     status_led_obj.update(currentTime);

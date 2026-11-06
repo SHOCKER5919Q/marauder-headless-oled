@@ -420,8 +420,9 @@
     //#define HAS_SCREEN
     #define HAS_SD
     #define USE_SD
-    // SD module sits on its own SPI bus rather than sharing the TFT's
-    #define HAS_SEPARATE_SD
+    // SD now SHARES the VSPI bus with the TFT (separate chip-selects), so the
+    // separate-SPI path is off. Re-enable only for a headless SD-only build.
+    //#define HAS_SEPARATE_SD
     //#define HAS_TEMP_SENSOR
     //#define HAS_GPS
     // Paired with esp32 core 3.3.4 + NimBLE-Arduino 2.3.8, as the other
@@ -431,14 +432,36 @@
     #define HAS_NIMBLE_2
     #define HAS_IDF_3
 
-    // Minimal standalone I2C OLED status readout. Deliberately NOT HAS_SCREEN:
-    // this does not pull in TFT_eSPI or the menu UI. Read-only status only.
-    #define HAS_OLED_STATUS
+    // Legacy I2C OLED status UI - superseded by the TFT UI below. Kept compiled
+    // out for reference; re-enable only if you swap back to the SSD1306 panel
+    // (note GPIO22 is now the BACK button, so free it first).
+    //#define HAS_OLED_STATUS
     #ifdef HAS_OLED_STATUS
       #define OLED_SDA  21
       #define OLED_SCL  22
-      #define OLED_ADDR 0x3C   // confirmed at boot via I2C probe (prints to serial)
-      //#define OLED_SH1106    // uncomment if the panel is an SH1106 (image shifted ~2px / wrapped)
+      #define OLED_ADDR 0x3C
+      //#define OLED_SH1106
+    #endif
+
+    // Modern 1.8" SPI TFT UI (ST7735, 128x160) + 6-button navigation. Driven by
+    // our own TftUI module - NOT Marauder's HAS_SCREEN menu (that is laid out for
+    // 240x320). Shares the VSPI bus with the SD card (separate chip-selects).
+    #define HAS_TFT_UI
+    #ifdef HAS_TFT_UI
+      #define TFT_UI_CS   14
+      #define TFT_UI_DC   16
+      #define TFT_UI_RST  17
+      // SPI: MOSI=23, SCK=18, MISO=19 (default VSPI) shared with SD_CS=5
+      #define TFT_UI_TAB  INITR_BLACKTAB  // try INITR_GREENTAB / INITR_REDTAB if colors/offsets look off
+      #define TFT_UI_ROT  0               // 0..3 rotation
+      //#define TFT_UI_BL  4              // backlight GPIO for PWM brightness; undefined = LED tied to 3V3 (fixed)
+      // Six buttons, normally-open to GND -> INPUT_PULLUP, pressed = LOW
+      #define TUI_UP      25
+      #define TUI_DOWN    27
+      #define TUI_LEFT    32
+      #define TUI_RIGHT   33
+      #define TUI_ENTER   26
+      #define TUI_BACK    22
     #endif
 
     // Onboard activity LED (the DevKitC blue LED on GPIO2). Solid ON when idle,
